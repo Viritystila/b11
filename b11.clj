@@ -29,9 +29,7 @@
     (def r-cnt (root-cnt [:after r-trg]))
     (def b-trg (beat-trg [:after r-trg]))
     (def b-cnt (beat-cnt [:after b-trg]))
-    (ctl r-trg :rate 100)
-
-    )
+    (ctl r-trg :rate 100))
 
                                     ;Buses
   (do
@@ -115,31 +113,13 @@
   )
 
 
-                                        ;Control synths
-(do
-  (defsynth sin-out [freq1 1 freq2 1 scaler 1 out-control-bus 0]
-    (out:kr out-control-bus (+ (in:kr freq1) (* scaler (sin-osc:kr freq2)) )))
-
-  (def sin-out_1 (sin-out [:tail early-g] :freq1 cbus5 :freq2 1 :scaler 5 :out-control-bus cbus6))
-
-  (ctl sin-out_1 :freq2 2 :scaler 1)
 
                                         ;Synths
-  (defsynth sin-wave [amp 1 freq 22 phase 0 out-bus 0]
-    (let [amp_in (in:kr amp)
-          freq_in (in:kr freq)
-          phase_in (in:kr phase)
-          src (sin-osc freq_in phase_in 0)]
-      (out out-bus (* amp_in src))))
-
-  (def sin-wave_1 (sin-wave [:tail early-g] :amp cbus1 :freq cbus2 :phase cbus3 :out-bus abus1))
-
-  (def sin-wave_2 (sin-wave [:tail early-g] :amp cbus4 :freq cbus6 :phase 0 :out-bus abus2))
-
-
+(do
   (ctl r-trg :rate 12)
 
-  (defsynth superSin [f1 0 p1 0 a1 0
+  (defsynth superSin [outbus 0
+                      f1 0 p1 0 a1 0
                       f2 0 p2 0 a2 0
                       f3 0 p3 0 a3 0
                       f4 0 p4 0 a4 0
@@ -150,9 +130,10 @@
                                             sin4 (* (in:kr a4) (sin-osc (in:kr f4) (in:kr p4)))
                                             sin5 (* (in:kr a5) (sin-osc (in:kr f5) (in:kr p5)))
                                             sin6 (* (in:kr a6) (sin-osc (in:kr f6) (in:kr p6)))]
-                                        (out 0 (pan2 (normalizer (+ sin1 sin2 sin3 sin4 sin5 sin6))))))
+                                        (out outbus (* 1 (normalizer (+ sin1 sin2 sin3 sin4 sin5 sin6))))))
 
-  (def st (superSin cbus1 cbus2 cbus3
+  (def st (superSin [:head early-g] abus1
+                    cbus1 cbus2 cbus3
                     cbus4 cbus5 cbus6
                     cbus7 cbus8 cbus9
                     cbus10 cbus11 cbus12
@@ -160,32 +141,93 @@
                     cbus16 cbus17 cbus18))
 
                                         ;(kill st)
+ ; (kill st)
+                                        ; (kill 77)
 
-  (control-bus-set! cbus1 45)
-  (control-bus-set! cbus2 (* 0.0 Math/PI))
-  (control-bus-set! cbus3 1)
+   (buffer-write! buffer-32-1 [1 1 1 1 1 1 1 1
+                              1 1 1 1 1 1 1 1
+                              1 1 1 1 1 1 1 1
+                              1 1 1 1 1 1 1 1])
 
-  (control-bus-set! cbus4 43)
-  (control-bus-set! cbus5 (* 0.0 Math/PI))
-  (control-bus-set! cbus6 1)
 
-  (control-bus-set! cbus7 22)
-  (control-bus-set! cbus8 0)
-  (control-bus-set! cbus9 1)
+  (buffer-write! buffer-32-2 [45 35 55 65 55 65 75 85
+                              65 65 65 65 55 55 55 55
+                              85 65 45 35 55 75 95 105
+                              100 95 90 85 80 75 70 65])
 
-  (control-bus-set! cbus10 91)
-  (control-bus-set! cbus11 0)
-  (control-bus-set! cbus12 1)
+  (defsynth humm [outbus 0 trg 0 offset 0 in-bus 0
+                  in-bus-ctr 0 beat-buf1 0 beat-buf2 0]
+    (let [tr-in (pulse-divider (in:kr in-bus) 2)
+          ctr-in (in:kr in-bus-ctr)
+          pulses (buf-rd:kr 1 beat-buf1 ctr-in)
+          f_offset (buf-rd:kr 1 beat-buf2 ctr-in)
+          pls    (* tr-in pulses)
+          ;trigger (trig (in:kr trg) 0.1)
+          ;f_offset (in:kr offset)
+          s1 (* 0.5 (sin-osc (+ 20 f_offset)))
+          s2 (* 0.3 (sin-osc (+ f_offset 25)))
+          s3 (* 0.1 (sin-osc (+ f_offset 100)))
+          s4 (* 0.05 (sin-osc (+ f_offset 25)))
+          sa (* 0.0000005 (saw 100))
+          env (env-gen (perc 0.5 0.05) :gate pls)
+          trg (out:kr trg 0)]
+          (out 0 (pan2 (normalizer (* (+ (* s1 s2 s3 s4) sa ) env))))))
 
-  (control-bus-set! cbus13 20)
-  (control-bus-set! cbus14 (* Math/PI 0))
-  (control-bus-set! cbus15 1)
+  (def kf (humm 0 cbus20 cbus21 :in-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :beat-buf1 buffer-32-1 :beat-buf2 buffer-32-2))
 
-  (control-bus-set! cbus16 100)
-  (control-bus-set! cbus17 0)
-  (control-bus-set! cbus18 1)
+  (control-bus-set! cbus20 1)
+  (control-bus-set! cbus21 11)
 
-  (stop)
-  ;(kill st)
+  (kill kf)
+
   (pp-node-tree)
-  )
+
+  (defsynth envSynth [inbus 0 outbus 0 attack 1 decay 1 sustain 1 release 1 amp 1 trg 1]
+    (let [trigger (in:kr trg)
+          input  (in:ar inbus)
+          env (env-gen (adsr attack decay sustain release amp) :gate trigger)
+          ]
+      (out outbus (pan2 (* input amp env)))))
+
+  (def evs (envSynth [:tail early-g] :inbus abus1 :trg 1 :amp 1))
+
+  (ctl evs :amp 1 :trg cbus19)
+
+  ;(kill evs)
+
+  (do
+    (control-bus-set! cbus1 45)
+    (control-bus-set! cbus2 (* 0.0 Math/PI))
+    (control-bus-set! cbus3 1)
+
+    (control-bus-set! cbus4 41)
+    (control-bus-set! cbus5 (* 0.0 Math/PI))
+    (control-bus-set! cbus6 2)
+
+    (control-bus-set! cbus7 22)
+    (control-bus-set! cbus8 0)
+    (control-bus-set! cbus9 1)
+
+    (control-bus-set! cbus10 91)
+    (control-bus-set! cbus11 0)
+    (control-bus-set! cbus12 1)
+
+    (control-bus-set! cbus13 20)
+    (control-bus-set! cbus14 (* Math/PI 0))
+    (control-bus-set! cbus15 1)
+
+    (control-bus-set! cbus16 80)
+    (control-bus-set! cbus17 0)
+    (control-bus-set! cbus18 1))
+
+  (control-bus-set! cbus19 1)
+
+
+
+  ;(kill st)
+
+
+  (pp-node-tree))
+
+
+(stop)
