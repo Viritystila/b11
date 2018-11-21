@@ -146,15 +146,15 @@
                                         ; (kill 77)
 
    (buffer-write! buffer-32-1 [1 0 0 0 0 0 0 0
-                              0 0 0 0 0 0 0 0
-                              0 0 0 0 0 0 0 0
-                              0 0 0 0 0 0 0 0])
+                              1 0 0 0 0 0 0 0
+                              1 0 0 0 0 0 0 0
+                              1 0 0 0 0 0 0 0])
 
 
-  (buffer-write! buffer-32-2 [0 2 4 6 8 10 12 14
-                              1 1 1 1  2 2 2 2
-                              10 20 1 1 4 4 5 5
-                              4 4 4 4 6 6 6 6])
+  (buffer-write! buffer-32-2 [0 1 4 1 0 1 4 1
+                              3 4 5 3 1 0 1 0
+                              0 2 3 4 0 0 0 0
+                              4 5 6 5 4 3 1 0])
 
   (defsynth humm [outbus 0  in-bus 0
                   in-bus-ctr 0 beat-buf1 0 beat-buf2 0 attack 0 release 0]
@@ -166,10 +166,10 @@
           pls    (* tr-in pulses)
           ;trigger (trig pls 0.1)
           ;f_offset (in:kr offset)
-          s1 (* 0.5 (sin-osc (+ 25 0)))
-          s2 (* 0.3 (sin-osc (+ f_offset 25)))
-          s3 (* 0.1 (sin-osc (+ f_offset 50)))
-          s4 (* 0.05 (sin-osc (+ f_offset 75)))
+          s1 (* 0.5 (sin-osc (* 1 f_offset)))
+          s2 (* 0.3 (sin-osc (* 2 f_offset)))
+          s3 (* 0.1 (sin-osc (* 3 f_offset)))
+          s4 (* 0.05 (sin-osc (* 4 f_offset)))
           sa (* 0.0000005 (saw 100))
           env (env-gen (perc (in:kr attack) (in:kr release)) :gate pls)]
           (out 0 (pan2 (normalizer (* (+ (* s1 s2 s3 s4) sa  ) env))))))
@@ -195,7 +195,7 @@
 
   (def evs (envSynth [:tail early-g] :inbus abus1 :trg 1 :amp 1))
 
-  (ctl evs :amp 1 :trg cbus19)
+  (ctl evs :amp 0.1)
 
   ;(kill evs)
 
