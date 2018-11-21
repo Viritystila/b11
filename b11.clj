@@ -1,6 +1,7 @@
 (ns b11 (:use [overtone.live]) (:require [shadertone.tone :as t]) )
 
 
+
 (do
   ;Global pulses
   (do
@@ -144,41 +145,44 @@
  ; (kill st)
                                         ; (kill 77)
 
-   (buffer-write! buffer-32-1 [1 1 1 1 1 1 1 1
-                              1 1 1 1 1 1 1 1
-                              1 1 1 1 1 1 1 1
-                              1 1 1 1 1 1 1 1])
+   (buffer-write! buffer-32-1 [1 0 0 0 0 0 0 0
+                              0 0 0 0 0 0 0 0
+                              0 0 0 0 0 0 0 0
+                              0 0 0 0 0 0 0 0])
 
 
-  (buffer-write! buffer-32-2 [45 35 55 65 55 65 75 85
-                              65 65 65 65 55 55 55 55
-                              85 65 45 35 55 75 95 105
-                              100 95 90 85 80 75 70 65])
+  (buffer-write! buffer-32-2 [0 2 4 6 8 10 12 14
+                              1 1 1 1  2 2 2 2
+                              10 20 1 1 4 4 5 5
+                              4 4 4 4 6 6 6 6])
 
-  (defsynth humm [outbus 0 trg 0 offset 0 in-bus 0
-                  in-bus-ctr 0 beat-buf1 0 beat-buf2 0]
-    (let [tr-in (pulse-divider (in:kr in-bus) 2)
+  (defsynth humm [outbus 0  in-bus 0
+                  in-bus-ctr 0 beat-buf1 0 beat-buf2 0 attack 0 release 0]
+    (let [tr-in (pulse-divider (in:kr in-bus) 1)
+         ; tr-in (t-delay:kr tr-in 0)
           ctr-in (in:kr in-bus-ctr)
           pulses (buf-rd:kr 1 beat-buf1 ctr-in)
           f_offset (buf-rd:kr 1 beat-buf2 ctr-in)
           pls    (* tr-in pulses)
-          ;trigger (trig (in:kr trg) 0.1)
+          ;trigger (trig pls 0.1)
           ;f_offset (in:kr offset)
-          s1 (* 0.5 (sin-osc (+ 20 f_offset)))
+          s1 (* 0.5 (sin-osc (+ 25 0)))
           s2 (* 0.3 (sin-osc (+ f_offset 25)))
-          s3 (* 0.1 (sin-osc (+ f_offset 100)))
-          s4 (* 0.05 (sin-osc (+ f_offset 25)))
+          s3 (* 0.1 (sin-osc (+ f_offset 50)))
+          s4 (* 0.05 (sin-osc (+ f_offset 75)))
           sa (* 0.0000005 (saw 100))
-          env (env-gen (perc 0.5 0.05) :gate pls)
-          trg (out:kr trg 0)]
-          (out 0 (pan2 (normalizer (* (+ (* s1 s2 s3 s4) sa ) env))))))
+          env (env-gen (perc (in:kr attack) (in:kr release)) :gate pls)]
+          (out 0 (pan2 (normalizer (* (+ (* s1 s2 s3 s4) sa  ) env))))))
 
-  (def kf (humm 0 cbus20 cbus21 :in-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :beat-buf1 buffer-32-1 :beat-buf2 buffer-32-2))
+  (def kf (humm 0 cbus20 cbus21 :in-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :beat-buf1 buffer-32-1 :beat-buf2 buffer-32-2 :attack cbus20 :release cbus21))
 
-  (control-bus-set! cbus20 1)
-  (control-bus-set! cbus21 11)
+  ;(ctl kf :beat-buf2 buffer-32-2 )
 
-  (kill kf)
+
+  (control-bus-set! cbus20 0.2)
+  (control-bus-set! cbus21 2.5)
+
+ ; (kill kf)
 
   (pp-node-tree)
 
