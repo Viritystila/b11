@@ -115,9 +115,12 @@
 
 
 
+
+
+
                                         ;Synths
 (do
-  (ctl r-trg :rate 12)
+  (ctl r-trg :rate 50)
 
   (defsynth superSin [outbus 0
                       f1 0 p1 0 a1 0
@@ -151,10 +154,10 @@
                               1 0 0 0 0 0 0 0])
 
 
-  (buffer-write! buffer-32-2 [0 1 4 1 0 1 4 1
-                              3 4 5 3 1 0 1 0
-                              0 2 3 4 0 0 0 0
-                              4 5 6 5 4 3 1 0])
+  (buffer-write! buffer-32-2 [0 1 4 1 0 1 1 1
+                              4 5 6 5 1 1 1 1
+                              0 1 4 1 0 1 1 1
+                              4 5 6 5 1 1 1 1])
 
   (defsynth humm [outbus 0  in-bus 0
                   in-bus-ctr 0 beat-buf1 0 beat-buf2 0 attack 0 release 0]
@@ -170,7 +173,7 @@
           s2 (* 0.3 (sin-osc (* 2 f_offset)))
           s3 (* 0.1 (sin-osc (* 3 f_offset)))
           s4 (* 0.05 (sin-osc (* 4 f_offset)))
-          sa (* 0.0000005 (saw 100))
+          sa (* 0.0000005 (saw 100) 0)
           env (env-gen (perc (in:kr attack) (in:kr release)) :gate pls)]
           (out 0 (pan2 (normalizer (* (+ (* s1 s2 s3 s4) sa  ) env))))))
 
@@ -179,14 +182,14 @@
   ;(ctl kf :beat-buf2 buffer-32-2 )
 
 
-  (control-bus-set! cbus20 0.2)
+  (control-bus-set! cbus20 1.1)
   (control-bus-set! cbus21 2.5)
 
  ; (kill kf)
-  (buffer-write! buffer-32-3 [1 0 0 0 1 0 0 0
-                              1 0 0 0 1 0 0 0
-                              1 0 0 0 1 0 0 0
-                              1 0 0 0 1 0 0 0])
+  (buffer-write! buffer-32-3 [0 0 0 0 0 1 0 0
+                              0 1 0 1 0 1 1 1
+                              1 1 0 0 0 0 0 0
+                              0 0 0 1 1 1 0 1])
 
   (defsynth snare [amp 30
                    fraction 1
@@ -208,7 +211,7 @@
           snare (* 3 (pink-noise) (apply + (* (decay env [attack release]) [1 release])))
           snare (+ snare (bpf (* 4 snare) 2000))
           snare (clip2 snare 1)]
-      (out out-bus (* amp snare env))))
+      (out out-bus (pan2 (* amp snare env)))))
 
   (def snare_1 (snare [:head early-g]
                       :amp 1
@@ -220,9 +223,9 @@
                       :out-bus 0
                       :del 0))
 
-  (ctl snare_1 :amp 0.5 :attack 0.01 :sustain 0.05 :release 0.05 :beat-buf buffer-32-3 :in-trg-bus root-trg-bus :in-bus-ctr root-cnt-bus)
+  (ctl snare_1 :amp 0.1 :attack 0.0001 :sustain 0.00035 :release 0.285 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus)
 
-  (kill snare_1)
+  ;(kill snare_1)
 
   (pp-node-tree)
 
@@ -235,7 +238,7 @@
 
   (def evs (envSynth [:tail early-g] :inbus abus1 :trg 1 :amp 1))
 
-  (ctl evs :amp 0.5)
+  (ctl evs :amp 0.2 :trg cbus19)
 
   ;(kill evs)
 
@@ -267,11 +270,23 @@
   (control-bus-set! cbus19 1)
 
 
+  (defsynth rush [freq 1 trg 0] (let[ssinn (sin-osc 40)
+                                     trigger (in:kr trg)
+                               pls 1
+                               f_env (env-gen (sine  5 22.1) :gate trigger)
+                               imp (impulse (* 10 f_env))] (out 0 (pan2 (+  (* 0.001 ssinn)  imp)))))
 
-  ;(kill st)
 
 
-  (pp-node-tree))
+  (def rs (rush 1 cbus22))
+
+  (control-bus-set! cbus22 1)
+
+  (kill rs)
+
+  (pp-node-tree)
 
 
-(stop)
+
+
+(stop))
