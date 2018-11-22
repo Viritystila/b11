@@ -173,7 +173,7 @@
           s2 (* 0.3 (sin-osc (* 2 f_offset)))
           s3 (* 0.1 (sin-osc (* 3 f_offset)))
           s4 (* 0.05 (sin-osc (* 4 f_offset)))
-          sa (* 0.0000005 (saw 100) 0)
+          sa (* 0.0000005 (saw (* 100 f_offset)) 0)
           env (env-gen (perc (in:kr attack) (in:kr release)) :gate pls)]
           (out 0 (pan2 (normalizer (* (+ (* s1 s2 s3 s4) sa  ) env))))))
 
@@ -187,9 +187,10 @@
 
  ; (kill kf)
   (buffer-write! buffer-32-3 [0 0 0 0 0 1 0 0
-                              0 1 0 1 0 1 1 1
-                              1 1 0 0 0 0 0 0
-                              0 0 0 1 1 1 0 1])
+                              0 1 0 0 0 0 0 0
+                              0 1 0 0 0 1 0 0
+                              0 0 0 0 0 1 0 0])
+
 
   (defsynth snare [amp 30
                    fraction 1
@@ -223,7 +224,7 @@
                       :out-bus 0
                       :del 0))
 
-  (ctl snare_1 :amp 0.1 :attack 0.0001 :sustain 0.00035 :release 0.285 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus)
+  (ctl snare_1 :amp 0.05 :attack 0.0001 :sustain 0.035 :release 0.285 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :del 0.0)
 
   ;(kill snare_1)
 
@@ -273,7 +274,8 @@
   (defsynth rush [freq 1 trg 0] (let[ssinn (sin-osc 40)
                                      trigger (in:kr trg)
                                pls 1
-                               f_env (env-gen (sine  5 22.1) :gate trigger)
+                                     f_env (env-gen (sine  5 22.1) :gate trigger)
+                                     _ (out:kr trg 0)
                                imp (impulse (* 10 f_env))] (out 0 (pan2 (+  (* 0.001 ssinn)  imp)))))
 
 
@@ -282,11 +284,12 @@
 
   (control-bus-set! cbus22 1)
 
-  (kill rs)
 
-  (pp-node-tree)
+ ; (kill rs)
+  ;(kill 124)
+  (pp-node-tree))
 
 
 
 
-(stop))
+(stop)
