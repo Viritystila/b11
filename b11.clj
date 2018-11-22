@@ -174,7 +174,7 @@
           env (env-gen (perc (in:kr attack) (in:kr release)) :gate pls)]
           (out 0 (pan2 (normalizer (* (+ (* s1 s2 s3 s4) sa  ) env))))))
 
-  (def kf (humm 0 cbus20 cbus21 :in-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :beat-buf1 buffer-32-1 :beat-buf2 buffer-32-2 :attack cbus20 :release cbus21))
+  (def kf (humm [:tail early-g] 0 cbus20 cbus21 :in-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :beat-buf1 buffer-32-1 :beat-buf2 buffer-32-2 :attack cbus20 :release cbus21))
 
   ;(ctl kf :beat-buf2 buffer-32-2 )
 
@@ -183,6 +183,46 @@
   (control-bus-set! cbus21 2.5)
 
  ; (kill kf)
+  (buffer-write! buffer-32-3 [1 0 0 0 1 0 0 0
+                              1 0 0 0 1 0 0 0
+                              1 0 0 0 1 0 0 0
+                              1 0 0 0 1 0 0 0])
+
+  (defsynth snare [amp 30
+                   fraction 1
+                   del 0
+                   in-trg-bus 0
+                   in-bus-ctr 0
+                   beat-buf 0
+                   out-bus 0
+                   del 0
+                   attack 0.1
+                   sustain 0.1
+                   release 0.1]
+    (let [tr-in (pulse-divider (in:kr in-trg-bus) fraction)
+          tr-in (t-delay:kr tr-in del)
+          ctr-in (in:kr in-bus-ctr)
+          pulses (buf-rd:kr 1 beat-buf ctr-in)
+          pls (* tr-in pulses)
+          env (env-gen (lin attack sustain release 0.1) :gate pls)
+          snare (* 3 (pink-noise) (apply + (* (decay env [attack release]) [1 release])))
+          snare (+ snare (bpf (* 4 snare) 2000))
+          snare (clip2 snare 1)]
+      (out out-bus (* amp snare env))))
+
+  (def snare_1 (snare [:head early-g]
+                      :amp 1
+                      :fraction 1
+                      :del 0
+                      :in-trg-bus beat-trg-bus
+                      :in-bus-ctr beat-cnt-bus
+                      :beat-buf buffer-32-1
+                      :out-bus 0
+                      :del 0))
+
+  (ctl snare_1 :amp 0.5 :attack 0.01 :sustain 0.05 :release 0.05 :beat-buf buffer-32-3 :in-trg-bus root-trg-bus :in-bus-ctr root-cnt-bus)
+
+  (kill snare_1)
 
   (pp-node-tree)
 
@@ -195,7 +235,7 @@
 
   (def evs (envSynth [:tail early-g] :inbus abus1 :trg 1 :amp 1))
 
-  (ctl evs :amp 0.1)
+  (ctl evs :amp 0.5)
 
   ;(kill evs)
 
