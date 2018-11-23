@@ -271,12 +271,14 @@
   (control-bus-set! cbus19 1)
 
 
-  (defsynth rush [freq 1 trg 0] (let[ssinn (sin-osc 40)
+  (defsynth rush [freq 1 trg 0] (let[ssinn   (sin-osc 40)
                                      trigger (in:kr trg)
-                               pls 1
-                                     f_env (env-gen (sine  5 22.1) :gate trigger)
-                                     _ (out:kr trg 0)
-                               imp (impulse (* 10 f_env))] (out 0 (pan2 (+  (* 0.001 ssinn)  imp)))))
+                                     pls     1
+                                     f_env   (env-gen (sine  5 22.1) :gate trigger)
+                                     _       (out:kr trg 0)
+                                     imp    (impulse (* 10 f_env))
+                                     a_env (env-gen (perc 0.0015 0.0015) :gate imp)]
+                                  (out 0 (pan2 (+  (* 1 ssinn a_env) )))))
 
 
 
@@ -287,7 +289,9 @@
 
  ; (kill rs)
   ;(kill 124)
-  (pp-node-tree))
+  (pp-node-tree)
+
+  )
 
 
 
