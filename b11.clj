@@ -3,6 +3,9 @@
 
 
 (do
+  (defn note->hz [music-note]
+    (midi->hz (note music-note)))
+
   ;Global pulses
   (do
     (defonce root-trg-bus (control-bus)) ;; global metronome pulse
@@ -112,11 +115,6 @@
     (defonce buffer-32-4 (buffer 32))
     (defonce buffer-32-5 (buffer 32))
   )
-
-
-
-
-
 
                                         ;Synths
 (do
@@ -270,6 +268,37 @@
 
   (control-bus-set! cbus19 1)
 
+  (buffer-write! buffer-4-1  (map note->hz (chord :C2 :sus2)))
+
+  (defsynth sinChord [in-bus-ctr 0 idxbuf 0 chordbuf 0 outbus 0]
+    (let [fidx (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
+          ;fidx (buf-rd:kr 1 idxbuf index)
+          f1 (buf-rd:kr 1 chordbuf (+ fidx 0))
+          f2 (buf-rd:kr 1 chordbuf (+ fidx 1))
+          f3 (buf-rd:kr 1 chordbuf (+ fidx 2))
+          s1 (sin-osc f1)
+          s2 (sin-osc f2)
+          s3 (sin-osc f3)]
+          (out outbus (pan2 (* 0.1 (+ s1 s2 s3))))))
+
+
+  (buffer-write! buffer-32-4 [1 1 1 0 1 0 1 0
+                              1 1 1 1 1 1 1 1
+                              1 0 1 0 1 0 1 0
+                              0 0 0 0 0 0 0 0])
+
+  (def iddb (buffer 2))
+  (buffer-write! iddb [0 1])
+
+ (def sc1 (sinChord beat-cnt-bus buffer-32-4 buffer-4-1 0))
+
+ (ctl sc1 :in-bus-ctr 1)
+
+ (kill sc1)
+
+ ;(def b1 (buffer 3))
+ ;(buffer-write! b1 (chord :C4 :major))
+ ;(chord :C4 :major)
 
   (defsynth rush [freq 1 trg 0] (let[ssinn   (sin-osc 40)
                                      trigger (in:kr trg)
@@ -289,9 +318,7 @@
 
  ; (kill rs)
   ;(kill 124)
-  (pp-node-tree)
-
-  )
+  (pp-node-tree))
 
 
 
