@@ -180,14 +180,14 @@
   ;(ctl kf :beat-buf2 buffer-32-2 )
 
 
-  (control-bus-set! cbus20 1.1)
-  (control-bus-set! cbus21 2.5)
+  (control-bus-set! cbus20 2.1)
+  (control-bus-set! cbus21 3.5)
 
  ; (kill kf)
-  (buffer-write! buffer-32-3 [0 0 0 0 0 1 0 0
-                              0 1 0 0 0 0 0 0
-                              0 1 0 0 0 1 0 0
-                              0 0 0 0 0 1 0 0])
+  (buffer-write! buffer-32-3 [1 0 0 0 0 0 0 0
+                              0 0 0 0 0 0 0 0
+                              1 0 0 0 0 0 0 0
+                              0 0 0 0 0 0 0 0])
 
 
   (defsynth snare [amp 30
@@ -222,7 +222,7 @@
                       :out-bus 0
                       :del 0))
 
-  (ctl snare_1 :amp 0.05 :attack 0.0001 :sustain 0.035 :release 0.285 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :del 0.0)
+  (ctl snare_1 :amp 0.025 :attack 0.00001 :sustain 0.035 :release 0.385 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :del 0.0)
 
   ;(kill snare_1)
 
@@ -268,9 +268,13 @@
 
   (control-bus-set! cbus19 1)
 
-  (buffer-write! buffer-4-1  (map note->hz (chord :C2 :sus2)))
 
-  (defsynth sinChord [in-bus-ctr 0 idxbuf 0 chordbuf 0 outbus 0]
+
+  (def chordBuffer (buffer 16))
+
+  (buffer-write! chordBuffer 0  (map note->hz (chord :C#3 :major)))
+
+  (defsynth sinChord [in-bus-ctr 0 idxbuf 0 chordbuf 0 outbus 0 amp 0.05]
     (let [fidx (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
           ;fidx (buf-rd:kr 1 idxbuf index)
           f1 (buf-rd:kr 1 chordbuf (+ fidx 0))
@@ -279,46 +283,46 @@
           s1 (sin-osc f1)
           s2 (sin-osc f2)
           s3 (sin-osc f3)]
-          (out outbus (pan2 (* 0.1 (+ s1 s2 s3))))))
+          (out outbus (pan2 (* amp (+ s1 s2 s3))))))
 
 
-  (buffer-write! buffer-32-4 [1 1 1 0 1 0 1 0
-                              1 1 1 1 1 1 1 1
-                              1 0 1 0 1 0 1 0
+  (buffer-write! buffer-32-4 [12 12 12 12 12 12 12 12
+                              12 12 12 12 12 12 12 12
+                              8 8 8 8 8 8 8 8
                               0 0 0 0 0 0 0 0])
 
-  (def iddb (buffer 2))
-  (buffer-write! iddb [0 1])
+ (def sc1 (sinChord [:tail early-g] beat-cnt-bus buffer-32-4 chordBuffer abus2))
 
- (def sc1 (sinChord beat-cnt-bus buffer-32-4 buffer-4-1 0))
+ (ctl sc1 :outbus 0)
 
- (ctl sc1 :in-bus-ctr 1)
-
- (kill sc1)
-
+ ;(kill sc1)
+;(kill 103)
  ;(def b1 (buffer 3))
  ;(buffer-write! b1 (chord :C4 :major))
  ;(chord :C4 :major)
 
-  (defsynth rush [freq 1 trg 0] (let[ssinn   (sin-osc 40)
-                                     trigger (in:kr trg)
-                                     pls     1
-                                     f_env   (env-gen (sine  5 22.1) :gate trigger)
-                                     _       (out:kr trg 0)
-                                     imp    (impulse (* 10 f_env))
-                                     a_env (env-gen (perc 0.0015 0.0015) :gate imp)]
-                                  (out 0 (pan2 (+  (* 1 ssinn a_env) )))))
+ (defsynth rush [in-bus 0 trg 0]
+   (let[audio-in (in in-bus)
+        trigger (in:kr trg)
+        f_env   (env-gen (perc 1 1 100 2) :gate trigger)
+        _       (out:kr trg 0)
+        imp    (impulse (* f_env))
+        a_env (env-gen (perc 0.015 0.015) :gate imp)
+        b_env (env-gen (squared-shape 0 10 10))]
+        (out 0 (pan2 (+  (* 0.2 audio-in a_env b_env b_env) )))))
 
+                                     ;
+ (def rs (rush [:tail early-g] abus1 cbus22))
 
+ (control-bus-set! cbus22 1)
 
-  (def rs (rush 1 cbus22))
+                                        ;
+ (kill rs)
 
-  (control-bus-set! cbus22 1)
+  ;(kill 92)
+  (pp-node-tree)
 
-
- ; (kill rs)
-  ;(kill 124)
-  (pp-node-tree))
+  )
 
 
 
