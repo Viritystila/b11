@@ -114,6 +114,7 @@
     (defonce buffer-32-3 (buffer 32))
     (defonce buffer-32-4 (buffer 32))
     (defonce buffer-32-5 (buffer 32))
+    (defonce buffer-32-6 (buffer 32))
   )
 
                                         ;Synths
@@ -266,13 +267,13 @@
     (control-bus-set! cbus17 0)
     (control-bus-set! cbus18 1))
 
-  (control-bus-set! cbus19 1)
+  (control-bus-set! cbus19 0)
 
 
 
   (def chordBuffer (buffer 16))
 
-  (buffer-write! chordBuffer 0  (map note->hz (chord :C#3 :major)))
+  (buffer-write! chordBuffer 12  (map note->hz (chord :C3 :major)))
 
   (defsynth sinChord [in-bus-ctr 0 idxbuf 0 chordbuf 0 outbus 0 amp 0.05]
     (let [fidx (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
@@ -304,11 +305,11 @@
  (defsynth rush [in-bus 0 trg 0]
    (let[audio-in (in in-bus)
         trigger (in:kr trg)
-        f_env   (env-gen (perc 1 1 100 2) :gate trigger)
+        f_env   (env-gen (perc 1 1 50 2) :gate trigger)
         _       (out:kr trg 0)
-        imp    (impulse (* f_env))
+        imp    (impulse (* 1 f_env))
         a_env (env-gen (perc 0.015 0.015) :gate imp)
-        b_env (env-gen (squared-shape 0 10 10))]
+        b_env (env-gen (perc 1 1 50 2) :gate imp)]
         (out 0 (pan2 (+  (* 0.2 audio-in a_env b_env b_env) )))))
 
                                      ;
@@ -317,14 +318,38 @@
  (control-bus-set! cbus22 1)
 
                                         ;
- (kill rs)
+; (kill rs)
 
   ;(kill 92)
   (pp-node-tree)
 
-  )
+
+
+  (defsynth kick [freq 80 beat-buf 0
+                  in-bus-ctr 0 in-trg-bus 0
+                  outbus 0 fraction 1 del 0]
+    (let [tr-in     (pulse-divider (in:kr in-trg-bus) fraction)
+          tr-in     (t-delay:kr tr-in del)
+          ctr-in    (in:kr in-bus-ctr)
+          pulses    (buf-rd:kr 1 beat-buf ctr-in)
+          pls       (* tr-in pulses)
+          co-env    (perc 0.001 1 freq -20)
+          a-env     (perc 0.001 1 1 -8)
+          osc-env   (perc 0.001 1 freq -8)
+          cutoff    (lpf (pink-noise) (+ (env-gen co-env :gate pls) 20))
+          sound     (lpf (sin-osc (+ (env-gen osc-env :gate pls) 20)) 200)
+          env       (env-gen a-env :gate pls)
+          output    (* (+ cutoff sound) env)]
+      (out outbus (pan2 output))))
+
+  (def k1 (kick :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus ))
+
+  (ctl k1 :freq 60 :beat-buf buffer-32-1)
+
+  (control-bus-set! cbus23 1)
+
+  (kill k1)
 
 
 
-
-(stop)
+  (stop))
