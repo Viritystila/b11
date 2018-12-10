@@ -147,7 +147,7 @@
  ; (kill st)
                                         ; (kill 77)
 
-   (buffer-write! buffer-32-1 [1 0 0 0 0 0 0 0
+   (buffer-write! buffer-32-1 [1 1 0 0 0 0 0 0
                               1 0 0 0 0 0 0 0
                               1 0 0 0 0 0 0 0
                               1 0 0 0 0 0 0 0])
@@ -185,10 +185,10 @@
   (control-bus-set! cbus21 3.5)
 
  ; (kill kf)
-  (buffer-write! buffer-32-3 [10 1 10 1 10 1 10 1
-                              1 0 0 0 1 0 0 0
-                              1 0 0 0 1 0 0 0
-                              1 0 0 0 1 0 0 0])
+  (buffer-write! buffer-32-3 [2 0 1 0 0 0 0 0
+                              1 0 0 0 0 0 0 0
+                              2 0 1 0 0 0 0 0
+                              1 0 0 0 0 0 0 0])
 
 
   (defsynth snare [amp 30
@@ -273,7 +273,7 @@
 
   (def chordBuffer (buffer 16))
 
-  (buffer-write! chordBuffer 8  (map note->hz (chord :C3 :7sus2)))
+  (buffer-write! chordBuffer 4  (map note->hz (chord :A3 :7sus2)))
 
   (defsynth sinChord [in-bus-ctr 0 idxbuf 0 chordbuf 0 outbus 0 amp 0.05]
     (let [fidx (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
@@ -348,31 +348,49 @@
 
   (control-bus-set! cbus23 0)
 
-  (kill k1)
+ ; (kill k1)
+
+  (buffer-write! buffer-32-5 [1 0 1 0 0 0 0 0
+                              1 0 0 0 1 0 0 0
+                              1 0 0 0 1 0 0 0
+                              1 0 0 0 1 0 0 0])
+
+  (buffer-write! buffer-32-6 [1 1 1 1 1 1 1 1
+                              0 0 0 0 2 2 2 2
+                              3 3 3 3 4 4 4 4
+                              4 4 4 4 0 0 0 0])
+
+  (def bassnotes (buffer 32))
+
+  (buffer-write! bassnotes 4 [(note->hz (note :C3))])
 
   (defsynth vintage-bass
-  [note 40 velocity 80 t 0.6 amp 1 del 0 in-bus-ctr 0 in-trg-bus 0 beat-buf 0 fraction 1]
-    (let [freq     (midicps note)
-          tr-in    (pulse-divider (in:kr in-trg-bus) fraction)
+    [noteidxbuffer 0 notebuffer 0 velocity 80 t 0.6 amp 1 del 0
+     in-bus-ctr 0 in-trg-bus 0 beat-buf 0 fraction 1]
+    (let [tr-in    (pulse-divider (in:kr in-trg-bus) fraction)
           tr-in    (t-delay:kr tr-in del)
           ctr-in   (in:kr in-bus-ctr)
           pulses   (buf-rd:kr 1 beat-buf ctr-in)
           pls      (* 1 pulses)
-        sub-freq (midicps (- note 12))
-        velocity (/ velocity 127.0)
-        sawz1    (* 0.275 (saw [freq (* 1.01 freq)]))
-        sawz2    (* 0.75 (saw [(- freq 2) (+ 1 freq)]))
-        sqz      (* 0.3 (pulse [sub-freq (- sub-freq 1)]))
-        mixed    (* 5 (+ sawz1 sawz2 sqz))
-        env      (env-gen (adsr 0.1 3.3 0.4 0.8) :gate pls)
-        filt     (* env (moog-ff mixed (* velocity env (+ freq 200)) 2.2))]
+          noteidx  (buf-rd:kr 1 noteidxbuffer ctr-in)
+          note     (buf-rd:kr 1 notebuffer noteidx)
+          freq     note
+          sub-freq (- note (midicps 12))
+          velocity (/ velocity 127.0)
+          sawz1    (* 0.275 (saw [freq (* 1.01 freq)]))
+          sawz2    (* 0.75 (saw [(- freq 2) (+ 1 freq)]))
+          sqz      (* 0.3 (pulse [sub-freq (- sub-freq 1)]))
+          mixed    (* 5 (+ sawz1 sawz2 sqz))
+          env      (env-gen (adsr 0.1 3.3 0.4 0.8) :gate pls)
+          filt     (* env (moog-ff mixed (* velocity env (+ freq 200)) 2.2))]
     (out 0 (* amp filt))))
 
-  (def bb (vintage-bass :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus))
+  (def bb (vintage-bass :noteidxbuffer buffer-32-6 :notebuffer chordBuffer
+           :beat-buf buffer-32-5 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus))
 
-  (ctl bb :amp 0.4 :beat-buf buffer-32-3 :note 30)
+  (ctl bb :amp 0.4 :beat-buf buffer-32-5 :notebuffer bassnotes :velocity 70 :t 0.6)
 
-  (kill bb)
+ ; (kill bb)
  ; (stop)
 
   )
