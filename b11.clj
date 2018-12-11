@@ -147,10 +147,10 @@
  ; (kill st)
                                         ; (kill 77)
 
-   (buffer-write! buffer-32-1 [1 1 0 0 0 0 0 0
-                              1 0 0 0 0 0 0 0
-                              1 0 0 0 0 0 0 0
-                              1 0 0 0 0 0 0 0])
+   (buffer-write! buffer-32-1 [1 0 0 0 1 0 0 0
+                              1 0 0 0 1 0 0 0
+                              1 0 0 0 1 1 1 0
+                              1 0 1 0 1 0 0 0])
 
 
   (buffer-write! buffer-32-2 [0 1 4 1 0 1 1 1
@@ -185,11 +185,10 @@
   (control-bus-set! cbus21 3.5)
 
  ; (kill kf)
-  (buffer-write! buffer-32-3 [2 0 1 0 0 0 0 0
-                              1 0 0 0 0 0 0 0
-                              2 0 1 0 0 0 0 0
-                              1 0 0 0 0 0 0 0])
-
+  (buffer-write! buffer-32-3 [2 0 1 0 2 0 1 0
+                              2 0 1 0 2 0 1 0
+                              2 0 1 0 2 0 1 0
+                              2 0 1 0 2 0 1 0])
 
   (defsynth snare [amp 30
                    fraction 1
@@ -223,7 +222,7 @@
                       :out-bus 0
                       :del 0))
 
-  (ctl snare_1 :amp 0.025 :attack 0.00001 :sustain 0.035 :release 0.385 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :del 0.0)
+  (ctl snare_1 :amp 0.015 :attack 0.00001 :sustain 0.035 :release 0.385 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :del 0.0)
 
   ;(kill snare_1)
 
@@ -273,7 +272,7 @@
 
   (def chordBuffer (buffer 16))
 
-  (buffer-write! chordBuffer 4  (map note->hz (chord :A3 :7sus2)))
+  (buffer-write! chordBuffer 8  (map note->hz (chord :D3 :major)))
 
   (defsynth sinChord [in-bus-ctr 0 idxbuf 0 chordbuf 0 outbus 0 amp 0.05]
     (let [fidx (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
@@ -350,19 +349,19 @@
 
  ; (kill k1)
 
-  (buffer-write! buffer-32-5 [1 0 1 0 0 0 0 0
+  (buffer-write! buffer-32-5 [1 0 0 0 1 0 0 0
                               1 0 0 0 1 0 0 0
                               1 0 0 0 1 0 0 0
                               1 0 0 0 1 0 0 0])
 
-  (buffer-write! buffer-32-6 [1 1 1 1 1 1 1 1
-                              0 0 0 0 2 2 2 2
-                              3 3 3 3 4 4 4 4
-                              4 4 4 4 0 0 0 0])
+  (buffer-write! buffer-32-6 [2 1 1 1 2 1 1 1
+                              0 0 0 0 1 2 2 2
+                              4 3 3 3 3 4 4 4
+                              2 4 4 4 0 0 0 0])
 
   (def bassnotes (buffer 32))
 
-  (buffer-write! bassnotes 4 [(note->hz (note :C3))])
+  (buffer-write! bassnotes 4 [(note->hz (note :D2))])
 
   (defsynth vintage-bass
     [noteidxbuffer 0 notebuffer 0 velocity 80 t 0.6 amp 1 del 0
