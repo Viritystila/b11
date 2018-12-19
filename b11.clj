@@ -144,12 +144,12 @@
                     cbus16 cbus17 cbus18))
 
                                         ;(kill st)
- ; (kill st)
+(kill st)
                                         ; (kill 77)
 
    (buffer-write! buffer-32-1 [1 0 0 0 1 0 0 0
                               1 0 0 0 1 0 0 0
-                              1 0 0 0 1 1 1 0
+                              1 0 1 0 1 1 1 0
                               1 0 1 0 1 0 0 0])
 
 
@@ -184,7 +184,7 @@
   (control-bus-set! cbus20 2.1)
   (control-bus-set! cbus21 3.5)
 
- ; (kill kf)
+  (kill kf)
   (buffer-write! buffer-32-3 [2 0 1 0 2 0 1 0
                               2 0 1 0 2 0 1 0
                               2 0 1 0 2 0 1 0
@@ -272,7 +272,7 @@
 
   (def chordBuffer (buffer 16))
 
-  (buffer-write! chordBuffer 8  (map note->hz (chord :D3 :major)))
+  (buffer-write! chordBuffer 12  (map note->hz (chord :F2 :major)))
 
   (defsynth sinChord [in-bus-ctr 0 idxbuf 0 chordbuf 0 outbus 0 amp 0.05]
     (let [fidx (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
@@ -301,25 +301,31 @@
  ;(buffer-write! b1 (chord :C4 :major))
  ;(chord :C4 :major)
 
- (defsynth rush [in-bus 0 trg 0]
-   (let[audio-in (in in-bus)
+ (defsynth rush [trg 0 freq 80 amp 1]
+   (let[src1    (sin-osc 100)
         trigger (in:kr trg)
-        f_env   (env-gen (perc 1 1 50 2) :gate trigger)
+        f_env   (env-gen (perc 1 1 30 -2) :gate trigger)
         _       (out:kr trg 0)
-        imp    (impulse (* 1 f_env))
-        a_env (env-gen (perc 0.015 0.015) :gate imp)
-        b_env (env-gen (perc 1 1 50 2) :gate imp)]
-        (out 0 (pan2 (+  (* 0.2 audio-in a_env b_env b_env) )))))
+        pls    (impulse (* 1 f_env))
+        co-env    (perc 0.001 1 freq -20)
+        a-env     (perc 0.001 1 1 -8)
+        osc-env   (perc 0.001 1 freq -8)
+        cutoff    (lpf (pink-noise) (+ (env-gen co-env :gate pls) 20))
+        sound     (lpf (sin-osc (+ pls (env-gen osc-env :gate pls) 20)) 200)
+        env       (env-gen a-env :gate pls)
+        output    (* amp (+ cutoff sound) env)
+        ]
+        (out 0 (pan2 output))))
 
                                      ;
- (def rs (rush [:tail early-g] abus1 cbus22))
+ (def rs (rush [:tail early-g] cbus22))
 
  (control-bus-set! cbus22 1)
 
                                         ;
 ; (kill rs)
-
-  ;(kill 92)
+;(stop)
+  ;(kill 120)
   (pp-node-tree)
 
 
@@ -361,7 +367,7 @@
 
   (def bassnotes (buffer 32))
 
-  (buffer-write! bassnotes 4 [(note->hz (note :D2))])
+  (buffer-write! bassnotes 4 [(note->hz (note :E2))])
 
   (defsynth vintage-bass
     [noteidxbuffer 0 notebuffer 0 velocity 80 t 0.6 amp 1 del 0
