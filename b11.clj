@@ -119,7 +119,7 @@
 
                                         ;Synths
 (do
-  (ctl r-trg :rate 50)
+  (ctl r-trg :rate 25)
 
   (defsynth superSin [outbus 0
                       f1 0 p1 0 a1 0
@@ -147,10 +147,10 @@
 (kill st)
                                         ; (kill 77)
 
-   (buffer-write! buffer-32-1 [1 0 0 0 1 0 0 0
-                              1 0 0 0 1 0 0 0
-                              1 0 1 0 1 1 1 0
-                              1 0 1 0 1 0 0 0])
+   (buffer-write! buffer-32-1 [1 1 0 0 1 0 0 0
+                               1 0 0 0 1 0 0 0
+                               1 0 0 0 1 0 0 0
+                               1 0 0 0 1 0 0 0])
 
 
   (buffer-write! buffer-32-2 [0 1 4 1 0 1 1 1
@@ -239,7 +239,7 @@
 
   (ctl evs :amp 0.2 :trg cbus19)
 
-  ;(kill evs)
+  (kill evs)
 
   (do
     (control-bus-set! cbus1 45)
@@ -272,26 +272,38 @@
 
   (def chordBuffer (buffer 16))
 
-  (buffer-write! chordBuffer 12  (map note->hz (chord :F2 :major)))
+  (buffer-write! chordBuffer 0 (map note->hz (chord :E2 :minor)))
+  (buffer-write! chordBuffer 4 (map note->hz (chord :C3 :minor)))
+  (buffer-write! chordBuffer 8 (map note->hz (chord :G3 :major)))
+  (buffer-write! chordBuffer 12  (map note->hz (chord :F3 :major)))
 
-  (defsynth sinChord [in-bus-ctr 0 idxbuf 0 chordbuf 0 outbus 0 amp 0.05]
+
+  (defsynth sinChord [in-bus-ctr 0 idxbuf 0 chordbuf 0 trigBuffer 0 outbus 0 amp 0.05
+                      attack 0.1 decay 0.1 sustain 0.1 release 0.1]
     (let [fidx (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
-          ;fidx (buf-rd:kr 1 idxbuf index)
-          f1 (buf-rd:kr 1 chordbuf (+ fidx 0))
-          f2 (buf-rd:kr 1 chordbuf (+ fidx 1))
-          f3 (buf-rd:kr 1 chordbuf (+ fidx 2))
-          s1 (sin-osc f1)
-          s2 (sin-osc f2)
-          s3 (sin-osc f3)]
+          trig (buf-rd:kr 1 trigBuffer (in:kr in-bus-ctr))
+          end  (env-gen (adsr attack decay sustain release) :gate trig)
+          f1   (buf-rd:kr 1 chordbuf (+ fidx 0))
+          f2   (buf-rd:kr 1 chordbuf (+ fidx 1))
+          f3   (buf-rd:kr 1 chordbuf (+ fidx 2))
+          s1   (sin-osc f1)
+          s2   (sin-osc f2)
+          s3   (sin-osc f3)]
           (out outbus (pan2 (* amp (+ s1 s2 s3))))))
 
+  (def eceb (buffer 32))
+
+  (buffer-write! eceb [1 0 0 0 0 0 0 0
+                       1 0 0 0 0 0 0 0
+                       1 0 0 0 0 0 0 0
+                       1 0 0 0 0 0 0 0])
 
   (buffer-write! buffer-32-4 [12 12 12 12 12 12 12 12
                               12 12 12 12 12 12 12 12
                               8 8 8 8 8 8 8 8
                               4 4 4 4 0 0 0 0])
 
- (def sc1 (sinChord [:tail early-g] beat-cnt-bus buffer-32-4 chordBuffer abus2))
+ (def sc1 (sinChord [:tail early-g] beat-cnt-bus buffer-32-4 chordBuffer eceb 0))
 
  (ctl sc1 :outbus 0)
 
@@ -302,11 +314,13 @@
  ;(chord :C4 :major)
 
  (defsynth rush [trg 0 freq 80 amp 1]
-   (let[src1    (sin-osc 100)
-        trigger (in:kr trg)
-        f_env   (env-gen (perc 1 1 30 -2) :gate trigger)
-        _       (out:kr trg 0)
-        pls    (impulse (* 1 f_env))
+   (let[src1      (sin-osc 100)
+        trigger   (in:kr trg)
+        env_c     (envelope [0 1 0.5 0] [0.00005 1.5 1.1] :lin)
+        ;f_env     (env-gen (perc 0.5 0.5 50 3) :gate trigger)
+        f_env     (env-gen env_c :gate trigger)
+        _         (out:kr trg 0)
+        pls       (impulse (* 20 f_env))
         co-env    (perc 0.001 1 freq -20)
         a-env     (perc 0.001 1 1 -8)
         osc-env   (perc 0.001 1 freq -8)
@@ -320,12 +334,13 @@
                                      ;
  (def rs (rush [:tail early-g] cbus22))
 
+
  (control-bus-set! cbus22 1)
 
                                         ;
 ; (kill rs)
 ;(stop)
-  ;(kill 120)
+  ;(kill 216 220)
   (pp-node-tree)
 
 
@@ -338,16 +353,16 @@
           ctr-in    (in:kr in-bus-ctr)
           pulses    (buf-rd:kr 1 beat-buf ctr-in)
           pls       (* tr-in pulses)
-          co-env    (perc 0.001 1 freq -20)
-          a-env     (perc 0.001 1 1 -8)
-          osc-env   (perc 0.001 pulses freq -8)
+          co-env    (perc 0.01 2 freq -20)
+          a-env     (perc 0.01 2 1 -8)
+          osc-env   (perc 0.01 2 freq -8)
           cutoff    (lpf (pink-noise) (+ (env-gen co-env :gate pls) 20))
           sound     (lpf (sin-osc (+ pls (env-gen osc-env :gate pls) 20)) 200)
           env       (env-gen a-env :gate pls)
           output    (* amp (+ cutoff sound) env)]
       (out outbus (pan2 output))))
 
-  (def k1 (kick :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus ))
+  (def k1 (kick [:tail early-g] :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus ))
 
   (ctl k1 :amp 0.7 :freq 80 :beat-buf buffer-32-1 :fraction 1)
 
@@ -355,18 +370,22 @@
 
  ; (kill k1)
 
-  (buffer-write! buffer-32-5 [1 0 0 0 1 0 0 0
-                              1 0 0 0 1 0 0 0
-                              1 0 0 0 1 0 0 0
+  (buffer-write! buffer-32-5 [1 0 1 0 0 0 0 0
+                              1 0 0 0 0 0 0 0
+                              1 0 0 0 0 0 0 0
                               1 0 0 0 1 0 0 0])
 
-  (buffer-write! buffer-32-6 [2 1 1 1 2 1 1 1
-                              0 0 0 0 1 2 2 2
-                              4 3 3 3 3 4 4 4
-                              2 4 4 4 0 0 0 0])
+  (buffer-write! buffer-32-6 [1 1 1 1 2 2 2 2
+                              0 0 0 0 2 2 2 2
+                              3 3 3 3 4 4 4 4
+                              4 4 4 4 0 0 0 0])
 
   (def bassnotes (buffer 32))
 
+  (buffer-write! bassnotes 0 [(note->hz (note :D2))])
+  (buffer-write! bassnotes 1 [(note->hz (note :G2))])
+  (buffer-write! bassnotes 2 [(note->hz (note :A2))])
+  (buffer-write! bassnotes 3 [(note->hz (note :F2))])
   (buffer-write! bassnotes 4 [(note->hz (note :E2))])
 
   (defsynth vintage-bass
@@ -390,7 +409,7 @@
           filt     (* env (moog-ff mixed (* velocity env (+ freq 200)) 2.2))]
     (out 0 (* amp filt))))
 
-  (def bb (vintage-bass :noteidxbuffer buffer-32-6 :notebuffer chordBuffer
+  (def bb (vintage-bass [:tail early-g] :noteidxbuffer buffer-32-6 :notebuffer chordBuffer
            :beat-buf buffer-32-5 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus))
 
   (ctl bb :amp 0.4 :beat-buf buffer-32-5 :notebuffer bassnotes :velocity 70 :t 0.6)
