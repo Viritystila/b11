@@ -185,6 +185,7 @@
   (control-bus-set! cbus21 3.5)
 
   (kill kf)
+
   (buffer-write! buffer-32-3 [2 0 1 0 2 0 1 0
                               2 0 1 0 2 0 1 0
                               2 0 1 0 2 0 1 0
@@ -272,7 +273,7 @@
 
   (def chordBuffer (buffer 16))
 
-  (buffer-write! chordBuffer 0 (map note->hz (chord :E2 :minor)))
+  (buffer-write! chordBuffer 0 (map note->hz (chord :E3 :minor)))
   (buffer-write! chordBuffer 4 (map note->hz (chord :C3 :minor)))
   (buffer-write! chordBuffer 8 (map note->hz (chord :G3 :major)))
   (buffer-write! chordBuffer 12  (map note->hz (chord :F3 :major)))
@@ -282,21 +283,21 @@
                       attack 0.1 decay 0.1 sustain 0.1 release 0.1]
     (let [fidx (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
           trig (buf-rd:kr 1 trigBuffer (in:kr in-bus-ctr))
-          end  (env-gen (adsr attack decay sustain release) :gate trig)
+          env  (env-gen (adsr attack decay sustain release) :gate trig)
           f1   (buf-rd:kr 1 chordbuf (+ fidx 0))
           f2   (buf-rd:kr 1 chordbuf (+ fidx 1))
           f3   (buf-rd:kr 1 chordbuf (+ fidx 2))
           s1   (sin-osc f1)
           s2   (sin-osc f2)
           s3   (sin-osc f3)]
-          (out outbus (pan2 (* amp (+ s1 s2 s3))))))
+          (out outbus (pan2 (* amp env (+ s1 s2 s3))))))
 
   (def eceb (buffer 32))
 
-  (buffer-write! eceb [1 0 0 0 0 0 0 0
-                       1 0 0 0 0 0 0 0
-                       1 0 0 0 0 0 0 0
-                       1 0 0 0 0 0 0 0])
+  (buffer-write! eceb [0 1 0 0 1 0 1 0
+                       0 1 0 0 1 0 1 0
+                       0 1 0 0 1 0 1 0
+                       0 1 0 0 1 0 1 0])
 
   (buffer-write! buffer-32-4 [12 12 12 12 12 12 12 12
                               12 12 12 12 12 12 12 12
@@ -305,7 +306,7 @@
 
  (def sc1 (sinChord [:tail early-g] beat-cnt-bus buffer-32-4 chordBuffer eceb 0))
 
- (ctl sc1 :outbus 0)
+ (ctl sc1 :outbus 0 :amp 0.25)
 
  ;(kill sc1)
 ;(kill 103)
@@ -347,7 +348,7 @@
 
   (defsynth kick [freq 80 beat-buf 0 amp 1
                   in-bus-ctr 0 in-trg-bus 0
-                  outbus 0 fraction 1 del 0]
+                  outbus 0 fraction 1 del 0 outCtrlBus 0]
     (let [tr-in     (pulse-divider (in:kr in-trg-bus) fraction)
           tr-in     (t-delay:kr tr-in del)
           ctr-in    (in:kr in-bus-ctr)
@@ -359,14 +360,15 @@
           cutoff    (lpf (pink-noise) (+ (env-gen co-env :gate pls) 20))
           sound     (lpf (sin-osc (+ pls (env-gen osc-env :gate pls) 20)) 200)
           env       (env-gen a-env :gate pls)
-          output    (* amp (+ cutoff sound) env)]
+          output    (* amp (+ cutoff sound) env)
+          _         (out:kr outCtrlBus pulses)]
       (out outbus (pan2 output))))
 
-  (def k1 (kick [:tail early-g] :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus ))
+  (def k1 (kick [:tail early-g] :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :outCtrlBus cbus23 ))
 
   (ctl k1 :amp 0.7 :freq 80 :beat-buf buffer-32-1 :fraction 1)
 
-  (control-bus-set! cbus23 0)
+;  (control-bus-set! cbus23 0)
 
  ; (kill k1)
 
@@ -375,7 +377,7 @@
                               1 0 0 0 0 0 0 0
                               1 0 0 0 1 0 0 0])
 
-  (buffer-write! buffer-32-6 [1 1 1 1 2 2 2 2
+  (buffer-write! buffer-32-6 [1 2 1 2 3 2 2 2
                               0 0 0 0 2 2 2 2
                               3 3 3 3 4 4 4 4
                               4 4 4 4 0 0 0 0])
@@ -418,3 +420,43 @@
  ; (stop)
 
   )
+
+
+                                        ;Videos
+(t/start "./b11.glsl" :width 1920 :height 1080 :cams [0 1] :videos ["../videos/jkl.mp4" "../videos/metro.mp4" "../videos/spede.mp4"])
+
+(t/bufferSection 2 0 51000)
+
+(t/set-video-fixed 2 :static)
+
+(t/set-video-play 2)
+
+(t/set-video-frame-limits 2  51000 52000)
+
+
+(def frameset [30 40])
+
+(def frameset [145 150 165 170])
+
+(defonce root-cnt-bus-atom_2 (bus-monitor root-cnt-bus))
+
+(defonce beat-cnt-bus-atom_1 (bus-monitor beat-cnt-bus))
+
+(add-watch beat-cnt-bus-atom_1 :cnt (fn [_ _ old new]
+                                    (let [])
+                                        (t/set-dataArray-item 0 (+ (nth (control-bus-get cbus23) 0) 0.1) )
+                                     ;(t/set-dataArray-item 0 10)
+                                    ;(t/set-fixed-buffer-index 2 :ff (nth (control-bus-get cbus7) 0))
+                                    ;(t/set-fixed-buffer-index 2 :inc)
+                                   (t/set-fixed-buffer-index 2 :ff (nth frameset (mod new (count frameset))))
+                                      ;(t/set-fixed-buffer-index 2 :ff (int (+ 100 (* 100 (Math/sin (mod new 3.14))))))
+
+                                     ))
+
+(t/set-dataArray-item 0 1)
+
+(keys (:watches (bean beat-cnt-bus-atom_1)))
+
+(remove-watch beat-cnt-bus-atom_1 :cnt)
+
+(control-bus-get cbus23)
