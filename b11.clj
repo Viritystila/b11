@@ -1,7 +1,6 @@
 (ns b11 (:use [overtone.live]) (:require [shadertone.tone :as t]) )
 
 
-
 (do
   (defn note->hz [music-note]
     (midi->hz (note music-note)))
@@ -119,7 +118,7 @@
 
                                         ;Synths
 (do
-  (ctl r-trg :rate 25)
+  (ctl r-trg :rate 30)
 
   (defsynth superSin [outbus 0
                       f1 0 p1 0 a1 0
@@ -150,7 +149,7 @@
    (buffer-write! buffer-32-1 [1 1 0 0 1 0 0 0
                                1 0 0 0 1 0 0 0
                                1 0 0 0 1 0 0 0
-                               1 0 0 0 1 0 0 0])
+                               1 0 0 0 50 0 1 0])
 
 
   (buffer-write! buffer-32-2 [0 1 4 1 0 1 1 1
@@ -186,7 +185,7 @@
 
   (kill kf)
 
-  (buffer-write! buffer-32-3 [2 0 1 0 2 0 1 0
+  (buffer-write! buffer-32-3 [20 0 10 0 2 0 1 0
                               2 0 1 0 2 0 1 0
                               2 0 1 0 2 0 1 0
                               2 0 1 0 2 0 1 0])
@@ -207,8 +206,9 @@
           ctr-in (in:kr in-bus-ctr)
           pulses (buf-rd:kr 1 beat-buf ctr-in)
           pls (* tr-in pulses)
+          adj (max 1 pulses)
           env (env-gen (lin attack sustain release 0.1) :gate pls)
-          snare (* 3 (pink-noise) (apply + (* (decay env [attack release]) [1 release])))
+          snare (* 3 adj (pink-noise) (apply + (* (decay env [attack release]) [1 release])))
           snare (+ snare (bpf (* 4 snare) 2000))
           snare (clip2 snare 1)]
       (out out-bus (pan2 (* amp snare env)))))
@@ -294,13 +294,13 @@
 
   (def eceb (buffer 32))
 
-  (buffer-write! eceb [0 1 0 0 1 0 1 0
-                       0 1 0 0 1 0 1 0
-                       0 1 0 0 1 0 1 0
-                       0 1 0 0 1 0 1 0])
+  (buffer-write! eceb [1 2 0 1 2 0 1 3
+                       0 1 0 0 2 0 4 0
+                       0 0 0 0 1 0 1 0
+                       0 0 0 0 1 4 8 0])
 
   (buffer-write! buffer-32-4 [12 12 12 12 12 12 12 12
-                              12 12 12 12 12 12 12 12
+                              12 8  12 12 8  12  4 12
                               8 8 8 8 8 8 8 8
                               4 4 4 4 0 0 0 0])
 
@@ -345,6 +345,11 @@
   (pp-node-tree)
 
 
+ ;
+  (buffer-write! buffer-32-1 [1 0 0 0 1 0 0 0
+                              1 0 0 0 1 0 0 0
+                              1 0 0 0 1 0 0 0
+                              1 0 0 0 1 0 1 0])
 
   (defsynth kick [freq 80 beat-buf 0 amp 1
                   in-bus-ctr 0 in-trg-bus 0
@@ -352,30 +357,31 @@
     (let [tr-in     (pulse-divider (in:kr in-trg-bus) fraction)
           tr-in     (t-delay:kr tr-in del)
           ctr-in    (in:kr in-bus-ctr)
-          pulses    (buf-rd:kr 1 beat-buf ctr-in)
-          pls       (* tr-in pulses)
-          co-env    (perc 0.01 2 freq -20)
-          a-env     (perc 0.01 2 1 -8)
-          osc-env   (perc 0.01 2 freq -8)
-          cutoff    (lpf (pink-noise) (+ (env-gen co-env :gate pls) 20))
-          sound     (lpf (sin-osc (+ pls (env-gen osc-env :gate pls) 20)) 200)
+          pls       (buf-rd:kr 1 beat-buf ctr-in)
+          adj       (max 1 pls)
+          co-env    (perc 0.01 1 freq -20)
+          a-env     (perc 0.01 1 1 -8)
+          osc-env   (perc 0.01 1 freq -8)
+          cutoff    (lpf (pink-noise) (+ (env-gen co-env :gate pls) (* 1 20)))
+          sound     (lpf (sin-osc (+ 0 (env-gen osc-env :gate pls) 20)) (* 200 1))
           env       (env-gen a-env :gate pls)
           output    (* amp (+ cutoff sound) env)
-          _         (out:kr outCtrlBus pulses)]
+          _         (out:kr outCtrlBus (clip2 pls 1))]
       (out outbus (pan2 output))))
 
   (def k1 (kick [:tail early-g] :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :outCtrlBus cbus23 ))
 
   (ctl k1 :amp 0.7 :freq 80 :beat-buf buffer-32-1 :fraction 1)
 
-;  (control-bus-set! cbus23 0)
+                                        ;  (control-bus-set! cbus23 0)
+  (pp-node-tree)
+  ;(kill 166 168)
+                                        ; (kill k1)
 
- ; (kill k1)
-
-  (buffer-write! buffer-32-5 [1 0 1 0 0 0 0 0
+  (buffer-write! buffer-32-5 [1 0 1 0 1 0 1 0
                               1 0 0 0 0 0 0 0
                               1 0 0 0 0 0 0 0
-                              1 0 0 0 1 0 0 0])
+                              1 0 0 0 1 1 1 0])
 
   (buffer-write! buffer-32-6 [1 2 1 2 3 2 2 2
                               0 0 0 0 2 2 2 2
@@ -409,16 +415,84 @@
           mixed    (* 5 (+ sawz1 sawz2 sqz))
           env      (env-gen (adsr 0.1 3.3 0.4 0.8) :gate pls)
           filt     (* env (moog-ff mixed (* velocity env (+ freq 200)) 2.2))]
-    (out 0 (* amp filt))))
+      (out 0 (* amp filt))))
 
   (def bb (vintage-bass [:tail early-g] :noteidxbuffer buffer-32-6 :notebuffer chordBuffer
-           :beat-buf buffer-32-5 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus))
+                        :beat-buf buffer-32-5 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus))
 
-  (ctl bb :amp 0.4 :beat-buf buffer-32-5 :notebuffer bassnotes :velocity 70 :t 0.6)
+  (ctl bb :amp 0.4 :beat-buf buffer-32-5 :notebuffer bassnotes :velocity 40 :t 0.06)
 
- ; (kill bb)
- ; (stop)
+                                        ; (kill bb)
+                                        ; (stop)
+                                        ; mooger and tb303 from https://github.com/overtone/overtone/blob/master/src/overtone/inst/synth.clj
+  (defsynth mooger
+    "Choose 0, 1, or 2 for saw, sin, or pulse"
+    [in-bus-ctr 0 idxbuf 0 notebuf 0 trigBuffer 0
+     amp  {:default 0.3 :min 0 :max 1 :step 0.01}
+     osc1 {:default 0 :min 0 :max 2 :step 1}
+     osc2 {:default 1 :min 0 :max 2 :step 1}
+     osc1-level {:default 0.5 :min 0 :max 1 :step 0.01}
+     osc2-level {:default 0 :min 0 :max 1 :step 0.01}
+     cutoff {:default 500 :min 0 :max 20000 :step 1}
+     attack {:default 0.0001 :min 0.0001 :max 5 :step 0.001}
+     decay {:default 0.3 :min 0.0001 :max 5 :step 0.001}
+     sustain {:default 0.99 :min 0.0001 :max 1 :step 0.001}
+     release {:default 0.0001 :min 0.0001 :max 6 :step 0.001}
+     fattack {:default 0.0001 :min 0.0001 :max 6 :step 0.001}
+     fdecay {:default 0.3 :min 0.0001 :max 6 :step 0.001}
+     fsustain {:default 0.999 :min 0.0001 :max 1 :step 0.001}
+     frelease {:default 0.0001 :min 0.0001 :max 6 :step 0.001}
+     gate 0]
+    (let [fidx       (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
+          gate       (buf-rd:kr 1 trigBuffer (in:kr in-bus-ctr))
+          freq       (buf-rd:kr 1 notebuf (+ fidx 0))
+          adj        (max 1 gate)
+          osc-bank-1 [(saw freq) (sin-osc freq) (pulse freq)]
+          osc-bank-2 [(saw freq) (sin-osc freq) (pulse freq)]
+          amp-env    (env-gen (adsr attack decay sustain release) :gate gate)
+          f-env      (env-gen (adsr fattack fdecay fsustain frelease) :gate gate)
+          s1         (* osc1-level (select osc1 osc-bank-1))
+          s2         (* osc2-level (select osc2 osc-bank-2))
+          filt       (moog-ff (+ s1 s2) (* adj cutoff f-env) 3)]
+      (out 0 (pan2 (* amp amp-env filt)))))
 
+  (def mg (mooger [:tail early-g] beat-cnt-bus buffer-32-4 chordBuffer eceb))
+
+  (ctl mg :idxbuf buffer-32-4 :notebuf chordBuffer :osc1 2 :osc2 1 :osc1-level 0.95 :osc2-level 0.95 :cutoff 600
+       :attack 0.0001 :decay 0.001 :sustain 0.099 :release 0.001 :amp 1)
+
+                                        ;(kill mg)
+
+
+  (defsynth tb303
+    [note       {:default 60 :min 0 :max 120 :step 1}
+     wave       {:default 1 :min 0 :max 2 :step 1}
+     r          {:default 0.8 :min 0.01 :max 0.99 :step 0.01}
+     attack     {:default 0.01 :min 0.001 :max 4 :step 0.001}
+     decay      {:default 0.1 :min 0.001 :max 4 :step 0.001}
+     sustain    {:default 0.6 :min 0.001 :max 0.99 :step 0.001}
+     release    {:default 0.01 :min 0.001 :max 4 :step 0.001}
+     cutoff     {:default 100 :min 1 :max 20000 :step 1}
+     env-amount {:default 0.01 :min 0.001 :max 4 :step 0.001}
+     amp        {:default 0.5 :min 0 :max 1 :step 0.01}]
+    (let [freq       (midicps note)
+          freqs      [freq (* 1.01 freq)]
+          vol-env    (env-gen (adsr attack decay sustain release)
+                              (line:kr 1 0 (+ attack decay release))
+                              :action FREE)
+          fil-env    (env-gen (perc))
+          fil-cutoff (+ cutoff (* env-amount fil-env))
+          waves      (* vol-env
+                        [(saw freqs)
+                         (pulse freqs 0.5)
+                         (lf-tri freqs)])
+          selector   (select wave waves)
+          filt       (rlpf selector fil-cutoff r)]
+      (out 0 (pan2 (* amp filt)))))
+
+  (def tb (tb303 :amp 2))
+
+                                        ;(stop)
   )
 
 
