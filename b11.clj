@@ -15,7 +15,7 @@
     )
 
   (do
-    (defsynth root-trg [rate 100]
+    (defsynth root-trg [rate 10]
       (out:kr root-trg-bus (impulse:kr rate)))
 
     (defsynth root-cnt []
@@ -114,6 +114,14 @@
     (defonce buffer-32-4 (buffer 32))
     (defonce buffer-32-5 (buffer 32))
     (defonce buffer-32-6 (buffer 32))
+    (defonce buffer-32-7 (buffer 32))
+
+    (defonce buffer-64-1 (buffer 64))
+    (defonce buffer-64-2 (buffer 64))
+    (defonce buffer-64-3 (buffer 64))
+    (defonce buffer-64-4 (buffer 64))
+    (defonce buffer-64-5 (buffer 64))
+    (defonce buffer-64-6 (buffer 64))
   )
 
                                         ;Synths
@@ -223,10 +231,10 @@
                       :out-bus 0
                       :del 0))
 
-  (ctl snare_1 :amp 0.015 :attack 0.00001 :sustain 0.035 :release 0.385 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :del 0.0)
+  (ctl snare_1 :amp 0.010 :attack 0.00001 :sustain 0.035 :release 0.385 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :del 0.0)
 
   ;(kill snare_1)
-
+ ;(stop)
   (pp-node-tree)
 
   (defsynth envSynth [inbus 0 outbus 0 attack 1 decay 1 sustain 1 release 1 amp 1 trg 1]
@@ -313,15 +321,29 @@
  ;(def b1 (buffer 3))
  ;(buffer-write! b1 (chord :C4 :major))
  ;(chord :C4 :major)
+;(stop)
 
- (defsynth rush [trg 0 freq 80 amp 1]
-   (let[src1      (sin-osc 100)
-        trigger   (in:kr trg)
-        env_c     (envelope [0 1 0.5 0] [0.00005 1.5 1.1] :lin)
+ (buffer-write! buffer-32-7 [0 0 0 0 0 0 0 1
+                             0 0 0 0 0 0 0 0
+                             0 0 0 0 0 0 0 1
+                             0 0 0 0 0 0 0 0])
+
+ (defsynth rush [freq 80 beat-buf 0 amp 1
+                  in-bus-ctr 0 in-trg-bus 0
+                  outbus 0 fraction 1 del 0 famp 5]
+   (let[tr-in     (pulse-divider (in:kr in-trg-bus) fraction)
+        tr-in     (t-delay:kr tr-in del)
+        ctr-in    (in:kr in-bus-ctr)
+        pls       (buf-rd:kr 1 beat-buf ctr-in)
+
+
+        src1      (sin-osc 100)
+        ;trigger   (in:kr trg)
+        env_c     (envelope [0 5 1 0] [0.00001 0.25 1.0] :lin)
         ;f_env     (env-gen (perc 0.5 0.5 50 3) :gate trigger)
-        f_env     (env-gen env_c :gate trigger)
-        _         (out:kr trg 0)
-        pls       (impulse (* 20 f_env))
+        f_env     (env-gen env_c :gate pls)
+        ;_         (out:kr trg 0)
+        pls       (impulse (* famp  f_env))
         co-env    (perc 0.001 1 freq -20)
         a-env     (perc 0.001 1 1 -8)
         osc-env   (perc 0.001 1 freq -8)
@@ -333,15 +355,16 @@
         (out 0 (pan2 output))))
 
                                      ;
- (def rs (rush [:tail early-g] cbus22))
+ (def rs (rush [:tail early-g] :beat-buf buffer-32-7 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus))
 
+ (ctl rs :beat-buf buffer-32-7 :famp 20 :freq 300 :amp 0.2)
 
  (control-bus-set! cbus22 1)
 
                                         ;
 ; (kill rs)
 ;(stop)
-  ;(kill 216 220)
+  ;(kill 66)
   (pp-node-tree)
 
 
@@ -381,7 +404,7 @@
   (buffer-write! buffer-32-5 [1 0 1 0 1 0 1 0
                               1 0 0 0 0 0 0 0
                               1 0 0 0 0 0 0 0
-                              1 0 0 0 1 1 1 0])
+                              1 0 0 1 1 0 1 0])
 
   (buffer-write! buffer-32-6 [1 2 1 2 3 2 2 2
                               0 0 0 0 2 2 2 2
@@ -465,7 +488,8 @@
 
 
   (defsynth tb303
-    [note       {:default 60 :min 0 :max 120 :step 1}
+    [in-bus-ctr 0 idxbuf 0 notebuf 0 trigBuffer 0
+     note       {:default 60 :min 0 :max 120 :step 1}
      wave       {:default 1 :min 0 :max 2 :step 1}
      r          {:default 0.8 :min 0.01 :max 0.99 :step 0.01}
      attack     {:default 0.01 :min 0.001 :max 4 :step 0.001}
@@ -475,23 +499,30 @@
      cutoff     {:default 100 :min 1 :max 20000 :step 1}
      env-amount {:default 0.01 :min 0.001 :max 4 :step 0.001}
      amp        {:default 0.5 :min 0 :max 1 :step 0.01}]
-    (let [freq       (midicps note)
-          freqs      [freq (* 1.01 freq)]
-          vol-env    (env-gen (adsr attack decay sustain release)
+    (let [  freq       (midicps note)
+            fidx       (buf-rd:kr 1 idxbuf (in:kr in-bus-ctr))
+            gate       (buf-rd:kr 1 trigBuffer (in:kr in-bus-ctr))
+            freq       (buf-rd:kr 1 notebuf (+ fidx 0))
+            adj        (max 1 gate)
+            freqs      [freq (* 1.01 freq)]
+            vol-env    (env-gen (adsr attack decay sustain release)
                               (line:kr 1 0 (+ attack decay release))
-                              :action FREE)
-          fil-env    (env-gen (perc))
-          fil-cutoff (+ cutoff (* env-amount fil-env))
-          waves      (* vol-env
+                              :gate gate)
+            fil-env    (env-gen (perc))
+            fil-cutoff (+ cutoff (* env-amount fil-env))
+            waves      (* vol-env
                         [(saw freqs)
                          (pulse freqs 0.5)
                          (lf-tri freqs)])
-          selector   (select wave waves)
-          filt       (rlpf selector fil-cutoff r)]
+            selector   (select wave waves)
+            filt       (rlpf selector fil-cutoff r)]
       (out 0 (pan2 (* amp filt)))))
 
-  (def tb (tb303 :amp 2))
+  (def tb (tb303 [:tail early-g]  beat-cnt-bus buffer-32-4 chordBuffer eceb :amp 3))
 
+  (ctl tb :amp 1)
+
+  (kill tb)
                                         ;(stop)
   )
 
@@ -507,6 +538,7 @@
 
 (t/set-video-frame-limits 2  51000 52000)
 
+(t/set-video-frame-limits 2 30000 31000)
 
 (def frameset [30 40])
 
@@ -530,7 +562,7 @@
 (t/set-dataArray-item 0 1)
 
 (keys (:watches (bean beat-cnt-bus-atom_1)))
-
+q
 (remove-watch beat-cnt-bus-atom_1 :cnt)
 
 (control-bus-get cbus23)
