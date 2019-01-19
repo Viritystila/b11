@@ -126,7 +126,7 @@
 
                                         ;Synths
 (do
-  (ctl r-trg :rate 30)
+  (ctl r-trg :rate 36)
 
   (defsynth superSin [outbus 0
                       f1 0 p1 0 a1 0
@@ -231,7 +231,7 @@
                       :out-bus 0
                       :del 0))
 
-  (ctl snare_1 :amp 0.010 :attack 0.00001 :sustain 0.035 :release 0.385 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :del 0.0)
+  (ctl snare_1 :amp 0.110 :attack 0.00001 :sustain 0.035 :release 0.385 :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :del 0.0)
 
   ;(kill snare_1)
  ;(stop)
@@ -282,7 +282,7 @@
   (def chordBuffer (buffer 16))
 
   (buffer-write! chordBuffer 0 (map note->hz (chord :E3 :minor)))
-  (buffer-write! chordBuffer 4 (map note->hz (chord :C3 :minor)))
+  (buffer-write! chordBuffer 4 (map note->hz (chord :D3 :minor)))
   (buffer-write! chordBuffer 8 (map note->hz (chord :G3 :major)))
   (buffer-write! chordBuffer 12  (map note->hz (chord :F3 :major)))
 
@@ -367,7 +367,10 @@
   ;(kill 66)
   (pp-node-tree)
 
-
+  (buffer-write! buffer-32-1 [1 0 1 0 1 0 1 0
+                              1 0 1 0 1 0 1 0
+                              1 0 1 0 1 0 1 0
+                              1 0 1 0 1 1 1 0])
  ;
   (buffer-write! buffer-32-1 [1 0 0 0 1 0 0 0
                               1 0 0 0 1 0 0 0
@@ -394,7 +397,7 @@
 
   (def k1 (kick [:tail early-g] :beat-buf buffer-32-3 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus :outCtrlBus cbus23 ))
 
-  (ctl k1 :amp 0.7 :freq 80 :beat-buf buffer-32-1 :fraction 1)
+  (ctl k1 :amp 1 :freq 80 :beat-buf buffer-32-1 :fraction 1)
 
                                         ;  (control-bus-set! cbus23 0)
   (pp-node-tree)
@@ -402,9 +405,20 @@
                                         ; (kill k1)
 
   (buffer-write! buffer-32-5 [1 0 1 0 1 0 1 0
+                              1 0 1 0 1 0 1 0
+                              1 0 1 0 1 0 1 0
+                              1 0 1 0 1 0 1 0])
+
+  (buffer-write! buffer-32-5 [1 0 1 0 1 0 1 0
                               1 0 0 0 0 0 0 0
                               1 0 0 0 0 0 0 0
                               1 0 0 1 1 0 1 0])
+
+
+  (buffer-write! buffer-32-6 [5 0 0 5 0 0 0 4
+                              5 0 0 5 0 0 0 4
+                              5 0 0 5 0 0 0 4
+                              5 0 0 5 0 0 0 4])
 
   (buffer-write! buffer-32-6 [1 2 1 2 3 2 2 2
                               0 0 0 0 2 2 2 2
@@ -418,6 +432,7 @@
   (buffer-write! bassnotes 2 [(note->hz (note :A2))])
   (buffer-write! bassnotes 3 [(note->hz (note :F2))])
   (buffer-write! bassnotes 4 [(note->hz (note :E2))])
+  (buffer-write! bassnotes 5 [(note->hz (note :C5))])
 
   (defsynth vintage-bass
     [noteidxbuffer 0 notebuffer 0 velocity 80 t 0.6 amp 1 del 0
@@ -443,7 +458,7 @@
   (def bb (vintage-bass [:tail early-g] :noteidxbuffer buffer-32-6 :notebuffer chordBuffer
                         :beat-buf buffer-32-5 :in-trg-bus beat-trg-bus :in-bus-ctr beat-cnt-bus))
 
-  (ctl bb :amp 0.4 :beat-buf buffer-32-5 :notebuffer bassnotes :velocity 40 :t 0.06)
+  (ctl bb :amp 0.964 :beat-buf buffer-32-5 :notebuffer bassnotes :velocity 90 :t 0.06)
 
                                         ; (kill bb)
                                         ; (stop)
@@ -518,12 +533,44 @@
             filt       (rlpf selector fil-cutoff r)]
       (out 0 (pan2 (* amp filt)))))
 
-  (def tb (tb303 [:tail early-g]  beat-cnt-bus buffer-32-4 chordBuffer eceb :amp 3))
+  (def tb (tb303 [:tail early-g]  beat-cnt-bus buffer-32-3 chordBuffer eceb :amp 3))
 
-  (ctl tb :amp 1)
+  (ctl tb :amp 1 :trigBuffer buffer-32-5)
 
-  (kill tb)
-                                        ;(stop)
+                                        ;(kill tb)
+(defsynth in-bus-synth [in-bus 0 gain 10 cutoff 10]
+  (let [src (sound-in in-bus)
+        ;srci (lpf src cutoff)
+        ;srco (* gain srci (pink-noise))
+        ]
+    (out 0 (pan2 (* gain src)))))
+
+(def ibs (in-bus-synth :cutoff 440 :gain 1))
+
+(ctl ibs :gain 1 :cutoff 2000)
+
+(kill ibs)
+;(kill 60)
+(pp-node-tree)
+
+(defsynth pitch-follow-1 [in-bus 0]
+  (let [in (mix [(sound-in in-bus)])
+        amp (amplitude:kr in 0.05 0.05)
+        [freq has-freq] (pitch:kr in
+                                  :amp-threshold 0.02
+                                  :median 7)
+        out-1 (mix [(var-saw:ar (mul-add:ar 0.5 1 2)
+                                0
+                                (lf-noise1:kr (mul-add:kr 0.3 0.1 0.1)))])
+        out-2 (loop [n 6
+                     out out-1]
+                (if (= n 0)
+                  out
+                  (recur (dec n) (allpass-n:ar out 0.040 (rand 0.040) 2))))]
+    (out:ar 0 (pan2 out-2))))
+
+(def pf1 (pitch-follow-1))
+ (kill pf1)                                     ;(stop)
   )
 
 
@@ -562,7 +609,7 @@
 (t/set-dataArray-item 0 1)
 
 (keys (:watches (bean beat-cnt-bus-atom_1)))
-q
+
 (remove-watch beat-cnt-bus-atom_1 :cnt)
 
 (control-bus-get cbus23)
